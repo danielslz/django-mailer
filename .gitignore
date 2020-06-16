@@ -3,9 +3,12 @@ build/
 django_mailer.egg-info/
 htmlcov/
 .tox/
+.vscode/
+.idea/
 
 MANIFEST
 .coverage
+.python-version
 *.mo
 *~
 *.pyc
