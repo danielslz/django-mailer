@@ -237,7 +237,7 @@ RESULT_CODES = (
 
 class MessageLogManager(models.Manager):
 
-    def log(self, message, result_code, log_message=""):
+    def log(self, message, result_code, log_message="", account=None):
         """
         create a log entry for an attempt to send the given message and
         record the given result and (optionally) a log message
@@ -249,6 +249,7 @@ class MessageLogManager(models.Manager):
             priority=message.priority,
             result=result_code,
             log_message=log_message,
+            account=account,
         )
 
     def purge_old_entries(self, days):
@@ -272,6 +273,9 @@ class MessageLog(models.Model):
     when_attempted = models.DateTimeField(default=datetime_now)
     result = models.CharField(max_length=1, choices=RESULT_CODES)
     log_message = models.TextField()
+
+    # account user
+    account = models.CharField(max_length=100, null=True, blank=True)
 
     objects = MessageLogManager()
 

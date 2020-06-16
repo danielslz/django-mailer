@@ -1,6 +1,7 @@
 from __future__ import unicode_literals
 
 import contextlib
+import datetime
 import logging
 import smtplib
 import time
@@ -31,6 +32,12 @@ LOCK_WAIT_TIMEOUT = getattr(settings, "MAILER_LOCK_WAIT_TIMEOUT", -1)
 # allows for a different lockfile path. The default is a file
 # in the current working directory.
 LOCK_PATH = getattr(settings, "MAILER_LOCK_PATH", None)
+
+# Get daily sending limit per account
+DAILY_SENDING_LIMIT_PER_ACCOUNT = getattr(settings, 'MAILER_DAILY_SENDING_LIMIT_PER_ACCOUNT', 0)
+
+# Get list of accounts
+ACCOUNTS_LIST = getattr(settings, 'MAILER_EMAIL_ACCOUNT_LIST', None)
 
 
 def prioritize():
@@ -153,6 +160,11 @@ def _require_no_backend_loop(mailer_email_backend):
                                    .format(settings.EMAIL_BACKEND))
 
 
+def _require_account_list():
+    if not ACCOUNTS_LIST or len(ACCOUNTS_LIST) < 1:
+        raise ImproperlyConfigured('MAILER_EMAIL_ACCOUNT_LIST should not both be set.')
+
+
 def send_all():
     """
     Send all eligible messages in the queue.
@@ -167,6 +179,8 @@ def send_all():
 
     _require_no_backend_loop(mailer_email_backend)
 
+    _require_account_list()
+
     acquired, lock = acquire_lock()
     if not acquired:
         return
@@ -174,7 +188,6 @@ def send_all():
     start_time = time.time()
 
     deferred = 0
-    sent = 0
 
     try:
         connection = None
@@ -183,38 +196,58 @@ def send_all():
                 if message is None:
                     # We didn't acquire the lock
                     continue
-                try:
-                    if connection is None:
-                        connection = get_connection(backend=mailer_email_backend)
-                    logging.info("sending message '{0}' to {1}".format(
-                        message.subject,
-                        ", ".join(message.to_addresses))
-                    )
-                    email = message.email
-                    if email is not None:
-                        email.connection = connection
-                        ensure_message_id(email)
-                        email.send()
+                for mail_account in ACCOUNTS_LIST:
+                    sent = 0
+                    try:
+                        account = mail_account['EMAIL_HOST_USER']
+                        sent_today_count = MessageLog.objects.filter(
+                            account=account,
+                            result=RESULT_SUCCESS,
+                            when_attempted__gt=datetime.datetime.now() - datetime.timedelta(days=1)
+                        ).count()
 
-                        # connection can't be stored in the MessageLog
-                        email.connection = None
-                        message.email = email  # For the sake of MessageLog
-                        MessageLog.objects.log(message, RESULT_SUCCESS)
-                        sent += 1
-                    else:
-                        logging.warning("message discarded due to failure in converting from DB. Added on '%s' with priority '%s'" % (message.when_added, message.priority))  # noqa
-                    message.delete()
+                        if DAILY_SENDING_LIMIT_PER_ACCOUNT and (sent_today_count + sent) >= DAILY_SENDING_LIMIT_PER_ACCOUNT:
+                            logging.warn("Daily sending limit of {limit} reached for account {account}".format(limit=DAILY_SENDING_LIMIT_PER_ACCOUNT, account=account))
+                            continue
 
-                except (socket_error, smtplib.SMTPSenderRefused,
-                        smtplib.SMTPRecipientsRefused,
-                        smtplib.SMTPDataError,
-                        smtplib.SMTPAuthenticationError) as err:
-                    message.defer()
-                    logging.info("message deferred due to failure: %s" % err)
-                    MessageLog.objects.log(message, RESULT_FAILURE, log_message=str(err))
-                    deferred += 1
-                    # Get new connection, it case the connection itself has an error.
-                    connection = None
+                        try:
+                            if connection is None:
+                                connection = get_connection(backend=mailer_email_backend, **mail_account)
+                            logging.info("Sending message '{0}' to {1} using account {2}".format(
+                                message.subject,
+                                ", ".join(message.to_addresses),
+                                account
+                            ))
+                            email = message.email
+                            if email is not None:
+                                email.connection = connection
+                                ensure_message_id(email)
+                                email.send()
+
+                                # connection can't be stored in the MessageLog
+                                email.connection = None
+                                message.email = email  # For the sake of MessageLog
+                                MessageLog.objects.log(message, RESULT_SUCCESS, account=account)
+                                sent += 1
+                            else:
+                                logging.warning(
+                                    "Message discarded due to failure in converting from DB. Added on '%s' with priority '%s'" % (
+                                    message.when_added, message.priority))  # noqa
+                            message.delete()
+
+                        except (socket_error, smtplib.SMTPSenderRefused,
+                                smtplib.SMTPRecipientsRefused,
+                                smtplib.SMTPDataError,
+                                smtplib.SMTPAuthenticationError) as err:
+                            message.defer()
+                            logging.info("Message deferred due to failure: %s" % err)
+                            MessageLog.objects.log(message, RESULT_FAILURE, log_message=str(err), account=account)
+                            deferred += 1
+                            # Get new connection, it case the connection itself has an error.
+                            connection = None
+                    except KeyError:
+                        logging.warn('Skipping account due to failure to pull settings')
+                        continue
 
             # Check if we reached the limits for the current run
             if _limits_reached(sent, deferred):
