@@ -203,7 +203,7 @@ def send_all():
                 if DAILY_SENDING_LIMIT_PER_ACCOUNT:
                     to_send_per_account = DAILY_SENDING_LIMIT_PER_ACCOUNT - sent_today_count
 
-                if to_send_per_account == 0:
+                if to_send_per_account <= 0:
                     logging.warn("Daily sending limit of {limit} reached for account {account}".format(limit=DAILY_SENDING_LIMIT_PER_ACCOUNT, account=account))
                     continue
 
