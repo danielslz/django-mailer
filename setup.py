@@ -29,6 +29,7 @@ setup(
     install_requires=[
         'Django >= 1.11',
         'lockfile >= 0.8',
+        'celery >= 4.2',
         'six',
-        ],
+    ],
 )
