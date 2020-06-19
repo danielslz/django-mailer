@@ -1,4 +1,4 @@
-from celery import shared_task, Celery
+from celery import shared_task, current_app
 from celery.schedules import crontab
 from celery.utils.log import get_logger
 from django.conf import settings
@@ -11,9 +11,7 @@ MAILER_MINUTS_TO_RETRY_DEFERRED = int(getattr(settings, 'MAILER_MINUTS_TO_RETRY_
 MAILER_MINUTS_TO_SEND_MAIL = int(getattr(settings, 'MAILER_MINUTS_TO_SEND_MAIL', 5))
 
 
-app = Celery()
-
-app.conf.beat_schedule = {
+current_app.conf.beat_schedule = {
     # Executes every minute
     'send_mail': {
         'task': 'mailer.tasks.send_mail',
