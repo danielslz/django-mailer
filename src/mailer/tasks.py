@@ -1,6 +1,36 @@
-from celery import shared_task
+from celery import shared_task, Celery
+from celery.schedules import crontab
 from celery.utils.log import get_logger
+from django.conf import settings
 from django.core import management
+
+
+# Get taks schedules
+MAILER_DAYS_PURGE_MAIL_LOG = int(getattr(settings, 'MAILER_DAYS_PURGE_MAIL_LOG', 7))
+MAILER_MINUTS_TO_RETRY_DEFERRED = int(getattr(settings, 'MAILER_MINUTS_TO_RETRY_DEFERRED', 30))
+MAILER_MINUTS_TO_SEND_MAIL = int(getattr(settings, 'MAILER_MINUTS_TO_SEND_MAIL', 5))
+
+
+app = Celery()
+
+app.conf.beat_schedule = {
+    # Executes every minute
+    'send_mail': {
+        'task': 'mailer.tasks.send_mail',
+        'schedule': crontab(minute='*/{}'.format(MAILER_MINUTS_TO_SEND_MAIL)),
+    },
+    # Execute every 20 minutes
+    'retry_deferred': {
+        'task': 'mailer.tasks.retry_deferred',
+        'schedule': crontab(minute='*/{}'.format(MAILER_MINUTS_TO_RETRY_DEFERRED)),
+    },
+    # Execute daily at midnight
+    'purge_mail_log': {
+        'task': 'mailer.tasks.purge_mail_log',
+        'schedule': crontab(minute=0, hour=0),
+        'kwargs': {'days': MAILER_DAYS_PURGE_MAIL_LOG},
+    },
+}
 
 
 @shared_task
