@@ -214,54 +214,54 @@ def send_all():
                             # We didn't acquire the lock
                             continue
 
-                    try:
-                        if connection is None:
-                            connection = get_connection(
-                                backend=mailer_email_backend,
-                                host=mail_account['EMAIL_HOST'],
-                                port=mail_account['EMAIL_PORT'],
-                                username=mail_account['EMAIL_HOST_USER'],
-                                password=mail_account['EMAIL_HOST_PASSWORD'],
-                                use_tls=mail_account['EMAIL_USE_TLS'],
-                            )
-                        logging.info("Sending message '{0}' to {1} using account {2}".format(
-                            message.subject,
-                            ", ".join(message.to_addresses),
-                            account
-                        ))
-                        email = message.email
-                        if email is not None:
-                            email.connection = connection
-                            ensure_message_id(email)
-                            email.send()
+                        try:
+                            if connection is None:
+                                connection = get_connection(
+                                    backend=mailer_email_backend,
+                                    host=mail_account['EMAIL_HOST'],
+                                    port=mail_account['EMAIL_PORT'],
+                                    username=mail_account['EMAIL_HOST_USER'],
+                                    password=mail_account['EMAIL_HOST_PASSWORD'],
+                                    use_tls=mail_account['EMAIL_USE_TLS'],
+                                )
+                            logging.info("Sending message '{0}' to {1} using account {2}".format(
+                                message.subject,
+                                ", ".join(message.to_addresses),
+                                account
+                            ))
+                            email = message.email
+                            if email is not None:
+                                email.connection = connection
+                                ensure_message_id(email)
+                                email.send()
 
-                            # connection can't be stored in the MessageLog
-                            email.connection = None
-                            message.email = email  # For the sake of MessageLog
-                            MessageLog.objects.log(message, RESULT_SUCCESS, account=account)
-                            sent += 1
-                        else:
-                            logging.warning(
-                                "Message discarded due to failure in converting from DB. Added on '%s' with priority '%s'" % (
-                                message.when_added, message.priority))  # noqa
-                        message.delete()
+                                # connection can't be stored in the MessageLog
+                                email.connection = None
+                                message.email = email  # For the sake of MessageLog
+                                MessageLog.objects.log(message, RESULT_SUCCESS, account=account)
+                                sent += 1
+                            else:
+                                logging.warning(
+                                    "Message discarded due to failure in converting from DB. Added on '%s' with priority '%s'" % (
+                                    message.when_added, message.priority))  # noqa
+                            message.delete()
 
-                    except (socket_error, smtplib.SMTPSenderRefused,
-                            smtplib.SMTPRecipientsRefused,
-                            smtplib.SMTPDataError,
-                            smtplib.SMTPAuthenticationError) as err:
-                        message.defer()
-                        logging.info("Message deferred due to failure: %s" % err)
-                        MessageLog.objects.log(message, RESULT_FAILURE, log_message=str(err), account=account)
-                        deferred += 1
-                        # Get new connection, it case the connection itself has an error.
-                        connection = None
+                        except (socket_error, smtplib.SMTPSenderRefused,
+                                smtplib.SMTPRecipientsRefused,
+                                smtplib.SMTPDataError,
+                                smtplib.SMTPAuthenticationError) as err:
+                            message.defer()
+                            logging.info("Message deferred due to failure: %s" % err)
+                            MessageLog.objects.log(message, RESULT_FAILURE, log_message=str(err), account=account)
+                            deferred += 1
+                            # Get new connection, it case the connection itself has an error.
+                            connection = None
 
-                # Check if we reached the limits for the current run
-                if _limits_reached(sent, deferred):
-                    break
+                    # Check if we reached the limits for the current run
+                    if _limits_reached(sent, deferred):
+                        break
 
-                _throttle_emails()
+                    _throttle_emails()
 
             except KeyError:
                 logging.warn('Skipping account due to failure to pull settings')
