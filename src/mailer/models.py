@@ -138,6 +138,8 @@ class Message(models.Model):
 
     def _set_email(self, val):
         self.message_data = email_to_db(val)
+        if 'ERROR' in val.subject:
+            self.priority = PRIORITY_LOW
 
     email = property(
         _get_email,
