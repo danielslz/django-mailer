@@ -12,20 +12,20 @@ MAILER_MINUTS_TO_SEND_MAIL = int(getattr(settings, 'MAILER_MINUTS_TO_SEND_MAIL',
 
 
 current_app.conf.beat_schedule = {
-    # Executes every minute
+    # Execute every MAILER_MINUTS_TO_SEND_MAIL minutes
     'send_mail': {
         'task': 'mailer.tasks.send_mail',
         'schedule': crontab(minute='*/{}'.format(MAILER_MINUTS_TO_SEND_MAIL)),
     },
-    # Execute every 20 minutes
+    # Execute every MAILER_MINUTS_TO_RETRY_DEFERRED minutes
     'retry_deferred': {
         'task': 'mailer.tasks.retry_deferred',
         'schedule': crontab(minute='*/{}'.format(MAILER_MINUTS_TO_RETRY_DEFERRED)),
     },
-    # Execute daily at midnight
+    # Execute twice a day
     'purge_mail_log': {
         'task': 'mailer.tasks.purge_mail_log',
-        'schedule': crontab(minute=0, hour=0),
+        'schedule': crontab(minute=0, hour='*/12'),
         'kwargs': {'days': MAILER_DAYS_PURGE_MAIL_LOG},
     },
 }
