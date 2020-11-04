@@ -190,6 +190,7 @@ def get_next_mail_account():
 
                 if to_send_per_account <= 0:
                     logging.warn("Daily sending limit of {limit} reached for account {account}".format(limit=DAILY_SENDING_LIMIT_PER_ACCOUNT, account=account))
+                    account_user = account
                     continue
 
                 # return nextelem if account is equal to last account used and not reached daily limit
