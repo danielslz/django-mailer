@@ -35,11 +35,11 @@ class DontSendEntryAdmin(admin.ModelAdmin):
 
 class MessageLogAdmin(MessageAdminMixin, admin.ModelAdmin):
 
-    list_display = ["id", show_to, "subject", "message_id", "when_attempted", "result"]
-    list_filter = ["result"]
+    list_display = ["id", show_to, "subject", "message_id", "when_attempted", "result", "account"]
+    list_filter = ["result", "account"]
     date_hierarchy = "when_attempted"
     readonly_fields = ['plain_text_body', 'message_id']
-    search_fields = ['message_id']
+    search_fields = ['message_id', 'account']
 
 
 admin.site.register(Message, MessageAdmin)
