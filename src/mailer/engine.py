@@ -171,9 +171,14 @@ def get_next_mail_account():
     last_message = MessageLog.objects.last()
     account_user = last_message.account
     account_list = cycle(ACCOUNTS_LIST)
+    account_list_size = len(ACCOUNTS_LIST)
+    count = 0
     # get first in the list
     nextelem = next(account_list)
     while True:
+        count += 1
+        if count > account_list_size:
+            return None, 0
         to_send_per_account = 0
         thiselem, nextelem = nextelem, next(account_list)
         if thiselem['EMAIL_HOST_USER'] == account_user:
@@ -228,63 +233,66 @@ def send_all():
     try:
         mail_account, to_send_per_account = get_next_mail_account()
         connection = None
-        for context in get_messages_for_sending(to_send_per_account):
-            with context as message:
-                if message is None:
-                    # We didn't acquire the lock
-                    continue
+        if mail_account:
+            for context in get_messages_for_sending(to_send_per_account):
+                with context as message:
+                    if message is None:
+                        # We didn't acquire the lock
+                        continue
 
-                account = mail_account['EMAIL_HOST_USER']
-                try:
-                    if connection is None:
-                        connection = get_connection(
-                            backend=mailer_email_backend,
-                            host=mail_account['EMAIL_HOST'],
-                            port=mail_account['EMAIL_PORT'],
-                            username=mail_account['EMAIL_HOST_USER'],
-                            password=mail_account['EMAIL_HOST_PASSWORD'],
-                            use_tls=mail_account['EMAIL_USE_TLS'],
-                        )
+                    account = mail_account['EMAIL_HOST_USER']
+                    try:
+                        if connection is None:
+                            connection = get_connection(
+                                backend=mailer_email_backend,
+                                host=mail_account['EMAIL_HOST'],
+                                port=mail_account['EMAIL_PORT'],
+                                username=mail_account['EMAIL_HOST_USER'],
+                                password=mail_account['EMAIL_HOST_PASSWORD'],
+                                use_tls=mail_account['EMAIL_USE_TLS'],
+                            )
 
-                    logging.info("Sending message '{0}' to {1} using account {2}".format(
-                        message.subject,
-                        ", ".join(message.to_addresses),
-                        account
-                    ))
+                        logging.info("Sending message '{0}' to {1} using account {2}".format(
+                            message.subject,
+                            ", ".join(message.to_addresses),
+                            account
+                        ))
 
-                    email = message.email
-                    if email is not None:
-                        email.connection = connection
-                        ensure_message_id(email)
-                        email.send()
+                        email = message.email
+                        if email is not None:
+                            email.connection = connection
+                            ensure_message_id(email)
+                            email.send()
 
-                        # connection can't be stored in the MessageLog
-                        email.connection = None
-                        message.email = email  # For the sake of MessageLog
-                        MessageLog.objects.log(message, RESULT_SUCCESS, account=account)
-                        sent += 1
-                    else:
-                        logging.warning(
-                            "Message discarded due to failure in converting from DB. Added on '%s' with priority '%s'" % (
-                            message.when_added, message.priority))  # noqa
-                    message.delete()
+                            # connection can't be stored in the MessageLog
+                            email.connection = None
+                            message.email = email  # For the sake of MessageLog
+                            MessageLog.objects.log(message, RESULT_SUCCESS, account=account)
+                            sent += 1
+                        else:
+                            logging.warning(
+                                "Message discarded due to failure in converting from DB. Added on '%s' with priority '%s'" % (
+                                message.when_added, message.priority))  # noqa
+                        message.delete()
 
-                except (socket_error, smtplib.SMTPSenderRefused,
-                        smtplib.SMTPRecipientsRefused,
-                        smtplib.SMTPDataError,
-                        smtplib.SMTPAuthenticationError) as err:
-                    message.defer()
-                    logging.info("Message deferred due to failure: %s" % err)
-                    MessageLog.objects.log(message, RESULT_FAILURE, log_message=str(err), account=account)
-                    deferred += 1
-                    # Get new connection, it case the connection itself has an error.
-                    connection = None
+                    except (socket_error, smtplib.SMTPSenderRefused,
+                            smtplib.SMTPRecipientsRefused,
+                            smtplib.SMTPDataError,
+                            smtplib.SMTPAuthenticationError) as err:
+                        message.defer()
+                        logging.info("Message deferred due to failure: %s" % err)
+                        MessageLog.objects.log(message, RESULT_FAILURE, log_message=str(err), account=account)
+                        deferred += 1
+                        # Get new connection, it case the connection itself has an error.
+                        connection = None
 
-            # Check if we reached the limits for the current run
-            if _limits_reached(sent, deferred):
-                break
+                # Check if we reached the limits for the current run
+                if _limits_reached(sent, deferred):
+                    break
 
-            _throttle_emails()
+                _throttle_emails()
+        else:
+            logging.info('No account available to send messages.') 
 
     finally:
         release_lock(lock)
