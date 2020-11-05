@@ -37,6 +37,9 @@ LOCK_PATH = getattr(settings, "MAILER_LOCK_PATH", None)
 # Get daily sending limit per account
 DAILY_SENDING_LIMIT_PER_ACCOUNT = getattr(settings, 'MAILER_DAILY_SENDING_LIMIT_PER_ACCOUNT', 0)
 
+# Get sending limit per run
+SENDING_LIMIT_PER_RUN = getattr(settings, 'MAILER_SENDING_LIMIT_PER_RUN', 0)
+
 # Get list of accounts
 ACCOUNTS_LIST = getattr(settings, 'MAILER_EMAIL_ACCOUNT_LIST', None)
 
@@ -197,6 +200,9 @@ def get_next_mail_account():
                     logging.warn("Daily sending limit of {limit} reached for account {account}".format(limit=DAILY_SENDING_LIMIT_PER_ACCOUNT, account=account))
                     account_user = account
                     continue
+
+                if SENDING_LIMIT_PER_RUN and to_send_per_account > SENDING_LIMIT_PER_RUN:
+                    to_send_per_account = SENDING_LIMIT_PER_RUN
 
                 # return nextelem if account is equal to last account used and not reached daily limit
                 return nextelem, to_send_per_account
