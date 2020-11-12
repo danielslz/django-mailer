@@ -159,18 +159,17 @@ set the attribute again to cause the underlying serialised data to be updated.""
             return []
     
     def set_priority(self, val):
+        self.priority = PRIORITY_MEDIUM
+        if len(SUBJECTS_LOW_PRIORITY) > 0:
+            for k in SUBJECTS_LOW_PRIORITY:
+                key = k.strip() 
+                if key and key in val.subject:
+                    self.priority = PRIORITY_LOW
         if len(SUBJECTS_HIGH_PRIORITY) > 0:
             for k in SUBJECTS_HIGH_PRIORITY:
                 key = k.strip() 
                 if key and key in val.subject:
                     self.priority = PRIORITY_HIGH
-        elif len(SUBJECTS_LOW_PRIORITY) > 0:
-            for k in SUBJECTS_LOW_PRIORITY:
-                key = k.strip() 
-                if key and key in val.subject:
-                    self.priority = PRIORITY_LOW
-        else:
-            self.priority = PRIORITY_MEDIUM
             
 
     @property
