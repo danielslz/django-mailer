@@ -10,6 +10,7 @@ try:
 except ImportError:
     def python_2_unicode_compatible(c):
         return c
+from django.conf import settings
 from django.utils.timezone import now as datetime_now
 from django.core.mail import EmailMessage
 from django.db import models
@@ -29,6 +30,9 @@ PRIORITIES = [
 ]
 
 PRIORITY_MAPPING = dict((label, v) for (v, label) in PRIORITIES)
+
+SUBJECTS_LOW_PRIORITY = list(str(getattr(settings, 'MAILER_SUBJECTS_LOW_PRIORITY', 'ERROR,')).split(','))
+SUBJECTS_HIGH_PRIORITY = list(str(getattr(settings, 'MAILER_SUBJECTS_HIGH_PRIORITY', '')).split(','))
 
 
 def get_message_id(msg):
@@ -138,8 +142,7 @@ class Message(models.Model):
 
     def _set_email(self, val):
         self.message_data = email_to_db(val)
-        if 'ERROR' in val.subject:
-            self.priority = PRIORITY_LOW
+        self.set_priority(val)
 
     email = property(
         _get_email,
@@ -154,6 +157,22 @@ set the attribute again to cause the underlying serialised data to be updated.""
             return email.to
         else:
             return []
+    
+    def set_priority(self, val):
+        if not self.priority:
+            if len(SUBJECTS_HIGH_PRIORITY) > 0:
+                for k in SUBJECTS_HIGH_PRIORITY:
+                    key = k.strip() 
+                    if key and key in val.subject:
+                        self.priority = PRIORITY_HIGH
+            elif len(SUBJECTS_LOW_PRIORITY) > 0:
+                for k in SUBJECTS_LOW_PRIORITY:
+                    key = k.strip() 
+                    if key and key in val.subject:
+                        self.priority = PRIORITY_LOW
+            else:
+                self.priority = PRIORITY_MEDIUM
+            
 
     @property
     def subject(self):
