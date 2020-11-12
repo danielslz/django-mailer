@@ -159,6 +159,9 @@ set the attribute again to cause the underlying serialised data to be updated.""
             return []
     
     def set_priority(self, val):
+        print('MAILER_SUBJECTS_HIGH_PRIORITY: {}'.format(SUBJECTS_HIGH_PRIORITY))
+        print('MAILER_SUBJECTS_LOW_PRIORITY: {}'.format(SUBJECTS_LOW_PRIORITY))
+        print('E-mail subject: {}'.format(val.subject))
         if not self.priority:
             if len(SUBJECTS_HIGH_PRIORITY) > 0:
                 for k in SUBJECTS_HIGH_PRIORITY:
