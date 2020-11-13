@@ -13,7 +13,7 @@ class DbBackend(BaseEmailBackend):
         MESSAGES_BATCH_SIZE = getattr(settings, "MAILER_MESSAGES_BATCH_SIZE", None)
 
         messages = Message.objects.bulk_create([
-            Message(email=email) for email in email_messages
+            Message(email=email) for email in email_messages if email.to is not None or email.to != ''
         ], MESSAGES_BATCH_SIZE)
 
         return len(messages)
