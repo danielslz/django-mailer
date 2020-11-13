@@ -16,6 +16,8 @@ from django.core.mail import get_connection
 from django.core.mail.message import make_msgid
 from django.db import DatabaseError, NotSupportedError, OperationalError, transaction
 from mailer.models import (RESULT_FAILURE, RESULT_SUCCESS, Message, MessageLog, get_message_id)
+from mailer.utils import send_async_mail
+
 
 if DJANGO_VERSION[0] >= 2:
     NotSupportedFeatureException = NotSupportedError
@@ -42,6 +44,9 @@ SENDING_LIMIT_PER_RUN = getattr(settings, 'MAILER_SENDING_LIMIT_PER_RUN', 0)
 
 # Get list of accounts
 ACCOUNTS_LIST = getattr(settings, 'MAILER_EMAIL_ACCOUNT_LIST', None)
+
+# Use async_send to deliver mail
+ASYNC_SEND = getattr(settings, 'MAILER_ASYNC_SEND', False)
 
 
 def prioritize(limit):
@@ -169,46 +174,66 @@ def _require_account_list():
         raise ImproperlyConfigured('MAILER_EMAIL_ACCOUNT_LIST should be set.')
 
 
+def get_account_limit(account):
+    to_send_per_account = 0
+
+    sent_today_count = MessageLog.objects.filter(
+        account=account,
+        result=RESULT_SUCCESS,
+        when_attempted__gt=datetime.datetime.now() - datetime.timedelta(days=1)
+    ).count()
+
+    if DAILY_SENDING_LIMIT_PER_ACCOUNT:
+        to_send_per_account = DAILY_SENDING_LIMIT_PER_ACCOUNT - sent_today_count
+
+    if to_send_per_account <= 0:
+        logging.warn("Daily sending limit of {limit} reached for account {account}".format(
+            limit=DAILY_SENDING_LIMIT_PER_ACCOUNT,
+            account=account)
+        )
+
+    if SENDING_LIMIT_PER_RUN and to_send_per_account > SENDING_LIMIT_PER_RUN:
+        to_send_per_account = SENDING_LIMIT_PER_RUN
+
+    return to_send_per_account
+
+
 def get_next_mail_account():
     # get last account used
     last_message = MessageLog.objects.last()
     account_user = last_message.account
     account_list = cycle(ACCOUNTS_LIST)
     account_list_size = len(ACCOUNTS_LIST)
+    account_limit_reached = 0
     count = 0
     # get first in the list
     nextelem = next(account_list)
     while True:
         count += 1
-        if count > account_list_size:
+        if account_limit_reached >= account_list_size:
             return None, 0
-        to_send_per_account = 0
+
         thiselem, nextelem = nextelem, next(account_list)
         if thiselem['EMAIL_HOST_USER'] == account_user:
             try:
                 account = nextelem['EMAIL_HOST_USER']
-                sent_today_count = MessageLog.objects.filter(
-                    account=account,
-                    result=RESULT_SUCCESS,
-                    when_attempted__gt=datetime.datetime.now() - datetime.timedelta(days=1)
-                ).count()
 
-                if DAILY_SENDING_LIMIT_PER_ACCOUNT:
-                    to_send_per_account = DAILY_SENDING_LIMIT_PER_ACCOUNT - sent_today_count
-
+                to_send_per_account = get_account_limit(account)
                 if to_send_per_account <= 0:
-                    logging.warn("Daily sending limit of {limit} reached for account {account}".format(limit=DAILY_SENDING_LIMIT_PER_ACCOUNT, account=account))
+                    account_limit_reached += 1
                     account_user = account
                     continue
-
-                if SENDING_LIMIT_PER_RUN and to_send_per_account > SENDING_LIMIT_PER_RUN:
-                    to_send_per_account = SENDING_LIMIT_PER_RUN
 
                 # return nextelem if account is equal to last account used and not reached daily limit
                 return nextelem, to_send_per_account
             except KeyError:
                 logging.warn('Skipping account due to failure to pull settings')
                 continue
+        else:
+            if count > account_list_size:
+                # return first
+                account = thiselem['EMAIL_HOST_USER']
+                return thiselem, get_account_limit(account)
 
 
 def send_all():
@@ -268,7 +293,10 @@ def send_all():
                         if email is not None:
                             email.connection = connection
                             ensure_message_id(email)
-                            email.send()
+                            if ASYNC_SEND:
+                                send_async_mail(email)
+                            else:
+                                email.send()
 
                             # connection can't be stored in the MessageLog
                             email.connection = None
