@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 Django, our web development framework of choice provides many useful functions,
 send_mail() being one of them which we frequently use.
