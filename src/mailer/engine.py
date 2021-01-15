@@ -200,14 +200,19 @@ def get_account_limit(account):
 
 def get_next_mail_account():
     # get last account used
-    last_message = MessageLog.objects.last()
-    account_user = last_message.account
+    count = 0
     account_list = cycle(ACCOUNTS_LIST)
     account_list_size = len(ACCOUNTS_LIST)
     account_limit_reached = 0
-    count = 0
     # get first in the list
     nextelem = next(account_list)
+    # get last messagelog
+    last_message = MessageLog.objects.last()
+    if not last_message:
+        # return first
+        account = nextelem['EMAIL_HOST_USER']
+        return nextelem, get_account_limit(account)
+    account_user = last_message.account
     while True:
         count += 1
         if account_limit_reached >= account_list_size:
