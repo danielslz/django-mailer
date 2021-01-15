@@ -11,7 +11,7 @@ MAILER_MINUTS_TO_RETRY_DEFERRED = int(getattr(settings, 'MAILER_MINUTS_TO_RETRY_
 MAILER_MINUTS_TO_SEND_MAIL = int(getattr(settings, 'MAILER_MINUTS_TO_SEND_MAIL', 5))
 
 
-current_app.conf.beat_schedule = {
+beat_schedule = {
     # Execute every MAILER_MINUTS_TO_SEND_MAIL minutes
     'send_mail': {
         'task': 'mailer.tasks.send_mail',
@@ -29,6 +29,8 @@ current_app.conf.beat_schedule = {
         'kwargs': {'days': MAILER_DAYS_PURGE_MAIL_LOG},
     },
 }
+
+current_app.conf.beat_schedule.update(beat_schedule)
 
 
 @shared_task
