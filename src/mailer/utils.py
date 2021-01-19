@@ -31,8 +31,29 @@ class EmailThread(threading.Thread):
         threading.Thread.__init__(self)
 
     def run(self):
-        self.msg.send()
+        # Variable that stores the exception, if raised by someFunction 
+        self.exc = None
+        try:
+            self.msg.send()
+            raise Exception('An error ocurred')
+        except BaseException as e: 
+            self.exc = e
+    
+    def join(self): 
+        threading.Thread.join(self) 
+        # Since join() returns in caller thread 
+        # we re-raise the caught exception 
+        # if any was caught 
+        if self.exc: 
+            raise self.exc 
 
 
 def send_async_mail(mail):
-    EmailThread(mail).start()
+    t = EmailThread(mail)
+    t.start()
+
+    # Exception handled in Caller thread 
+    try: 
+        t.join() 
+    except Exception as e: 
+        raise e 
