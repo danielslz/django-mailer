@@ -323,7 +323,7 @@ def send_all():
                             email.connection = connection
                             ensure_message_id(email)
                             if ASYNC_SEND:
-                                send_async_mail(email, message)
+                                send_async_mail(email, message, account)
                             else:
                                 email.send()
 
