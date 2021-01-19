@@ -269,7 +269,7 @@ class MessageLogManager(models.Manager):
             result=result_code,
             log_message=log_message,
             account=account,
-            to=message.to_addresses
+            to=", ".join(message.to_addresses)
         )
 
     def purge_old_entries(self, days):
