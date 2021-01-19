@@ -299,7 +299,10 @@ def send_all():
                             email.connection = connection
                             ensure_message_id(email)
                             if ASYNC_SEND:
-                                send_async_mail(email)
+                                # Make a thread and run
+                                t = send_async_mail(email)
+                                # Exception handled in Caller thread 
+                                t.join()
                             else:
                                 email.send()
 

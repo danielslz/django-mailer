@@ -52,10 +52,4 @@ class EmailThread(threading.Thread):
 def send_async_mail(mail):
     t = EmailThread(mail)
     t.start()
-
-    # Exception handled in Caller thread 
-    try: 
-        t.join() 
-    except Exception as e: 
-        logging.warning('Message send failure') 
-        raise e
+    return t
