@@ -319,8 +319,6 @@ class MessageLog(models.Model):
 
     @property
     def to_addresses(self):
-        if self.to:
-            return self.to
         email = self.email
         if email is not None:
             return email.to

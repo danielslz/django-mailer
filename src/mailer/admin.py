@@ -6,6 +6,8 @@ from mailer.models import Message, DontSendEntry, MessageLog
 
 
 def show_to(message):
+    if message.to:
+        return message.to
     return ", ".join(message.to_addresses)
 show_to.short_description = "To"  # noqa: E305
 
