@@ -22,7 +22,6 @@ perform the task asynchronously using Python’s threading.
 
 http://ui.co.id/blog/asynchronous-send_mail-in-django
 """
-import logging
 import threading
 
 
@@ -48,8 +47,3 @@ class EmailThread(threading.Thread):
         if self.exc: 
             raise self.exc 
 
-
-def send_async_mail(mail):
-    t = EmailThread(mail)
-    t.start()
-    return t
