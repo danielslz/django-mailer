@@ -22,6 +22,7 @@ perform the task asynchronously using Python’s threading.
 
 http://ui.co.id/blog/asynchronous-send_mail-in-django
 """
+import logging
 import threading
 
 
@@ -56,4 +57,4 @@ def send_async_mail(mail):
     try: 
         t.join() 
     except Exception as e: 
-        raise e 
+        logging.warning('Message send failure') 
