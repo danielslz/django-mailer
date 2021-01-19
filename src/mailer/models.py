@@ -269,7 +269,7 @@ class MessageLogManager(models.Manager):
             result=result_code,
             log_message=log_message,
             account=account,
-            to_addresses=message.to_addresses
+            to=message.to_addresses
         )
 
     def purge_old_entries(self, days):
@@ -288,7 +288,7 @@ class MessageLog(models.Model):
     message_id = models.TextField(editable=False, null=True)
     when_added = models.DateTimeField(db_index=True)
     priority = models.PositiveSmallIntegerField(choices=PRIORITIES, db_index=True)
-    to_addresses = models.CharField(max_length=255, blank=True, null=True)
+    to = models.CharField(max_length=255, blank=True, null=True)
 
     # additional logging fields
     when_attempted = models.DateTimeField(default=datetime_now)
@@ -317,13 +317,15 @@ class MessageLog(models.Model):
     def email(self):
         return db_to_email(self.message_data)
 
-    # @property
-    # def to_addresses(self):
-    #     email = self.email
-    #     if email is not None:
-    #         return email.to
-    #     else:
-    #         return []
+    @property
+    def to_addresses(self):
+        if self.to:
+            return self.to
+        email = self.email
+        if email is not None:
+            return email.to
+        else:
+            return []
 
     @property
     def subject(self):
