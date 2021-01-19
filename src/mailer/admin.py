@@ -39,7 +39,7 @@ class MessageLogAdmin(MessageAdminMixin, admin.ModelAdmin):
     list_filter = ["result", "account"]
     date_hierarchy = "when_attempted"
     readonly_fields = ['plain_text_body', 'message_id']
-    search_fields = ['message_id', 'account']
+    search_fields = ['message_id', 'account', 'to_addresses']
 
 
 admin.site.register(Message, MessageAdmin)
