@@ -58,3 +58,4 @@ def send_async_mail(mail):
         t.join() 
     except Exception as e: 
         logging.warning('Message send failure') 
+        raise e
